@@ -1,0 +1,118 @@
+.icon {
+    display: inline-block;
+    line-height: 1;
+    font-family: 'Arial', sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    speak: never;
+    text-decoration: none;
+    text-transform: none;
+    vertical-align: middle;
+}
+
+/* Базовые иконки */
+.icon-login::before { content: '🔐'; }
+.icon-register::before { content: '📝'; }
+.icon-logout::before { content: '🚪'; }
+.icon-user::before { content: '👤'; }
+.icon-chat::before { content: '💬'; }
+.icon-save::before { content: '💾'; }
+.icon-trash::before { content: '🗑️'; }
+.icon-edit::before { content: '✏️'; }
+.icon-plus::before { content: '➕'; }
+.icon-arrow-left::before { content: '←'; }
+.icon-arrow-right::before { content: '→'; }
+.icon-arrow-up::before { content: '↑'; }
+.icon-arrow-down::before { content: '↓'; }
+.icon-paper-plane::before { content: '📤'; }
+.icon-brain::before { content: '🧠'; }
+.icon-microchip::before { content: '💻'; }
+.icon-chart-line::before { content: '📈'; }
+.icon-bolt::before { content: '⚡'; }
+.icon-home::before { content: '🏠'; }
+.icon-tools::before { content: '🛠️'; }
+.icon-star::before { content: '★'; }
+.icon-star-filled::before { content: '★'; }
+.icon-star-empty::before { content: '☆'; }
+.icon-comments::before { content: '💭'; }
+.icon-check::before { content: '✓'; }
+.icon-error::before { content: '✗'; }
+.icon-settings::before { content: '⚙️'; }
+.icon-search::before { content: '🔍'; }
+.icon-filter::before { content: '🔧'; }
+.icon-link::before { content: '🔗'; }
+.icon-close::before { content: '✕'; }
+.icon-external::before { content: '↗'; }
+.icon-download::before { content: '📥'; }
+.icon-upload::before { content: '📤'; }
+.icon-refresh::before { content: '🔄'; }
+.icon-info::before { content: 'ℹ️'; }
+.icon-warning::before { content: '⚠️'; }
+.icon-success::before { content: '✅'; }
+.icon-copy::before { content: '📋'; }
+.icon-share::before { content: '📤'; }
+.icon-time::before { content: '⏰'; }
+.icon-calendar::before { content: '📅'; }
+.icon-email::before { content: '📧'; }
+.icon-phone::before { content: '📱'; }
+.icon-location::before { content: '📍'; }
+.icon-lock::before { content: '🔒'; }
+.icon-unlock::before { content: '🔓'; }
+.icon-eye::before { content: '👁️'; }
+.icon-eye-closed::before { content: '👁️‍🗨️'; }
+
+/* Иконки для фичей на главной */
+.feature-icon {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* Иконки для кнопок прокрутки чата */
+.chat-scroll-controls .icon {
+    font-size: 1rem;
+    margin-right: 5px;
+}
+
+/* Логотип в навбаре */
+.logo-icon {
+    height: 32px;
+    width: auto;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+/* Размеры иконок */
+.icon-xs { font-size: 0.75rem; }
+.icon-sm { font-size: 0.875rem; }
+.icon-md { font-size: 1rem; }
+.icon-lg { font-size: 1.25rem; }
+.icon-xl { font-size: 1.5rem; }
+.icon-2xl { font-size: 2rem; }
+.icon-3xl { font-size: 3rem; }
+
+/* Цвета иконок */
+.icon-primary { color: var(--primary-light); }
+.icon-accent { color: var(--accent-light); }
+.icon-success { color: #28a745; }
+.icon-warning { color: #ffc107; }
+.icon-danger { color: #dc3545; }
+.icon-info { color: #17a2b8; }
+.icon-light { color: var(--light-text); }
+.icon-gray { color: var(--gray-text); }
+
+/* Анимация вращения для иконки обновления */
+.icon-refresh.spinning {
+    animation: spin 1s linear infinite;
+}
+
+/* Анимация пульсации для новых сообщений */
+@keyframes message-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.icon-chat.has-new {
+    animation: message-pulse 2s infinite;
+}
