@@ -101,20 +101,39 @@ def extract_pinned_components(text: str, db_path: str) -> dict:
             table = 'cpus' if comp_type == 'cpu' else 'gpus'
             try:
                 if comp_type == 'cpu':
-                    # Предпочитаем CPU без встроенной графики (integrated_graphics ASC = 0 раньше 1)
                     cursor.execute(
-                        "SELECT * FROM cpus WHERE LOWER(name) LIKE ? AND price > 0 ORDER BY integrated_graphics ASC, price DESC LIMIT 1",
+                        "SELECT * FROM cpus WHERE LOWER(name) LIKE ? AND price > 0 "
+                        "ORDER BY integrated_graphics ASC, length(name) ASC, price ASC LIMIT 10",
                         (f'%{term}%',)
                     )
                 else:
                     cursor.execute(
-                        f"SELECT * FROM {table} WHERE LOWER(name) LIKE ? AND price > 0 ORDER BY price DESC LIMIT 1",
+                        f"SELECT * FROM {table} WHERE LOWER(name) LIKE ? AND price > 0 "
+                        f"ORDER BY length(name) ASC, price ASC LIMIT 10",
                         (f'%{term}%',)
                     )
-                row = cursor.fetchone()
-                if row:
-                    pinned[comp_type] = dict(row)
-                    print(f"[PIN] Зафиксирован {comp_type}: {pinned[comp_type]['name']}", file=sys.stderr)
+                rows = cursor.fetchall()
+                chosen = None
+                # Сначала ищем базовую модель без суффиксов Ti/XT/Super/Plus
+                variant_suffixes = ['ti', 'xt', 'super', 'plus', 'ultra']
+                for row in rows:
+                    comp_dict = dict(row)
+                    name_lower = comp_dict['name'].lower()
+                    term_pos = name_lower.find(term)
+                    if term_pos < 0:
+                        continue
+                    after = name_lower[term_pos + len(term):].lstrip()
+                    if not any(after.startswith(v) for v in variant_suffixes):
+                        chosen = comp_dict
+                        break
+                # Если базовая не найдена — берём первый результат как fallback
+                if not chosen and rows:
+                    chosen = dict(rows[0])
+                if chosen:
+                    pinned[comp_type] = chosen
+                    print(f"[PIN] Зафиксирован {comp_type}: {chosen['name']}", file=sys.stderr)
+                else:
+                    print(f"[PIN] Не найдено в БД: {comp_type} по запросу '%{term}%'", file=sys.stderr)
             except Exception as e:
                 print(f"[WARN] PIN query error: {e}", file=sys.stderr)
         conn.close()
@@ -122,6 +141,149 @@ def extract_pinned_components(text: str, db_path: str) -> dict:
         print(f"[WARN] extract_pinned error: {e}", file=sys.stderr)
 
     return pinned
+
+def has_component_keywords(text: str) -> bool:
+    """Проверяет есть ли в тексте упоминания компонентов (regex без запроса к БД)"""
+    text_lower = text.lower()
+    patterns = [
+        r'(?:amd\s+)?ryzen\s*\d+',
+        r'(?:intel\s+)?(?:core\s+)?i[3579][\s\-]\d{4}',
+        r'(?:rtx|gtx|rx)\s*\d{4}',
+        r'(?:geforce|radeon)\s+\w+',
+    ]
+    return any(re.search(p, text_lower) for p in patterns)
+
+
+def analyze_upgrade(text: str, budget: float, purpose: str, db_path: str) -> dict:
+    """Анализирует текущую сборку и предлагает апгрейд"""
+    current = extract_pinned_components(text, db_path)
+
+    if not current:
+        if has_component_keywords(text):
+            return {'success': False, 'not_in_db': True}
+        return {'success': False, 'need_info': True}
+    if budget <= 0:
+        return {'success': False, 'need_budget': True, 'current': current}
+
+    recommendations = []
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        priority = ['gpu', 'cpu'] if purpose == 'gaming' else ['cpu', 'gpu', 'ram']
+
+        for comp_type in priority:
+            if comp_type not in current:
+                continue
+            current_comp = current[comp_type]
+            current_price = current_comp.get('price', 0)
+
+            if comp_type == 'gpu':
+                cursor.execute(
+                    "SELECT * FROM gpus WHERE price <= ? AND price > 0 "
+                    "AND LOWER(name) != LOWER(?) ORDER BY vram DESC, price DESC LIMIT 1",
+                    (budget, current_comp['name'])
+                )
+            elif comp_type == 'cpu':
+                cpu_socket = current_comp.get('socket')
+                query = ("SELECT * FROM cpus WHERE price <= ? AND price > 0 "
+                         "AND LOWER(name) != LOWER(?)")
+                params = [budget, current_comp['name']]
+                if cpu_socket:
+                    query += " AND socket = ?"
+                    params.append(cpu_socket)
+                if purpose == 'gaming':
+                    query += " AND integrated_graphics = 0"
+                query += " ORDER BY cores DESC, threads DESC, price DESC LIMIT 1"
+                cursor.execute(query, params)
+            elif comp_type == 'ram':
+                cursor.execute(
+                    "SELECT * FROM rams WHERE price <= ? AND price > 0 "
+                    "AND LOWER(name) != LOWER(?) ORDER BY capacity DESC, price DESC LIMIT 1",
+                    (budget, current_comp['name'])
+                )
+            else:
+                continue
+
+            row = cursor.fetchone()
+            if row:
+                upgrade = dict(row)
+                # Рекомендуем только если апгрейд минимум на 20% дороже — иначе это не апгрейд
+                if upgrade.get('price', 0) >= current_price * 1.2:
+                    recommendations.append({
+                        'type': comp_type,
+                        'current': current_comp,
+                        'upgrade': upgrade
+                    })
+
+        conn.close()
+    except Exception as e:
+        print(f"[UPGRADE] Error: {e}", file=sys.stderr)
+        return {'success': False, 'error': str(e)}
+
+    return {'success': True, 'current': current, 'recommendations': recommendations, 'budget': budget}
+
+
+def format_upgrade_response(result: dict, purpose: str) -> str:
+    """Форматирует ответ с рекомендациями по апгрейду"""
+    type_names = {
+        'cpu': 'Процессор', 'gpu': 'Видеокарта',
+        'ram': 'Оперативная память', 'motherboard': 'Материнская плата'
+    }
+
+    current = result.get('current', {})
+    recommendations = result.get('recommendations', [])
+    budget = result.get('budget', 0)
+
+    response = "Анализ вашей сборки\n\n"
+    response += "Текущие компоненты:\n"
+    for comp_type, comp in current.items():
+        price_str = f"{comp.get('price', 0):,.0f}".replace(',', ' ')
+        response += f"• {type_names.get(comp_type, comp_type)}: {comp['name']} — {price_str} ₽\n"
+
+    response += f"\nБюджет на апгрейд: {budget:,.0f} ₽\n\n".replace(',', ' ')
+
+    if not recommendations:
+        most_expensive = max(current.values(), key=lambda c: c.get('price', 0))
+        most_expensive_price = most_expensive.get('price', 0)
+        if most_expensive_price > budget:
+            price_str = f"{most_expensive_price:,.0f}".replace(',', ' ')
+            response += (f"Найденный компонент стоит {price_str} ₽, "
+                         f"что уже превышает ваш бюджет на апгрейд.\n\n"
+                         f"Если система определила не ту модель — "
+                         f"уточните название точнее (например: RTX 3060 12GB вместо RTX 3060).\n"
+                         f"Или увеличьте бюджет на апгрейд.")
+        else:
+            min_budget = int(max(c.get('price', 0) for c in current.values()) * 1.2)
+            min_str = f"{min_budget:,.0f}".replace(',', ' ')
+            response += (f"В рамках указанного бюджета значимого апгрейда не найдено.\n"
+                         f"Для ощутимого улучшения бюджет должен быть от {min_str} ₽.")
+        return response
+
+    response += "Рекомендации по апгрейду:\n\n"
+    for rec in recommendations[:2]:
+        comp_type = rec['type']
+        cur = rec['current']
+        upg = rec['upgrade']
+        type_name = type_names.get(comp_type, comp_type)
+
+        cur_price = f"{cur.get('price', 0):,.0f}".replace(',', ' ')
+        upg_price = f"{upg.get('price', 0):,.0f}".replace(',', ' ')
+
+        response += f"{type_name}:\n"
+        response += f"  Сейчас: {cur['name']} — {cur_price} ₽\n"
+        response += f"  Замена: {upg['name']} — {upg_price} ₽\n"
+
+        if comp_type == 'gpu' and upg.get('vram', 0) > cur.get('vram', 0):
+            response += f"  Прирост VRAM: {cur.get('vram', 0)} → {upg.get('vram', 0)} ГБ\n"
+        elif comp_type == 'cpu' and upg.get('cores', 0) > cur.get('cores', 0):
+            response += f"  Прирост ядер: {cur.get('cores', 0)} → {upg.get('cores', 0)}\n"
+        response += "\n"
+
+    response += "Сборка готова! Вы можете сохранить её в профиле."
+    return response
+
 
 def extract_game_from_text(text):
     text_lower = text.lower()
@@ -377,7 +539,9 @@ def generate_response(intent, confidence, text, context, budget, purpose):
         )
 
         if recommendation_result.get('success', False):
-            recommendation_result['used_budget'] = budget
+            total_price = recommendation_result.get('total_price', budget)
+            recommendation_result['used_budget'] = total_price if game_info else budget
+            recommendation_result['is_game_build'] = bool(game_info)
             response = recommendation_result['message']
             if game_info and "для игры" not in response:
                 response = response.replace("Я подобрал для вас", f"Я подобрал для вас (для игры «{game_info['name']}»)")
@@ -430,12 +594,26 @@ def generate_response(intent, confidence, text, context, budget, purpose):
         return response, None
 
     elif intent == "upgrade_request":
-        response = "Апгрейд сборки\n\n"
-        response += "Чтобы предложить улучшения, опишите:\n"
-        response += "1. Текущие компоненты (процессор, видеокарта, память)\n"
-        response += "2. Бюджет на апгрейд\n"
-        response += "3. Цель — больше FPS в играх, скорость работы, монтаж и т.д.\n\n"
-        response += "Пример: У меня i5-10400F, GTX 1060 6GB, 16GB DDR4. Бюджет 30 000 рублей. Хочу улучшить для игр."
+        db_path = PC_BUILDER_DB_PATH
+        result = analyze_upgrade(text, budget, purpose, db_path)
+
+        if result.get('not_in_db'):
+            response = ("Компоненты из вашего запроса не найдены в базе данных.\n\n"
+                        "Укажите компоненты, которые есть в системе — "
+                        "их можно увидеть при подборе новой сборки.\n\n"
+                        "Или напишите 'подбери сборку за X рублей' — "
+                        "система сама подберёт оптимальную конфигурацию.")
+        elif result.get('need_info'):
+            response = ("Апгрейд сборки\n\n"
+                        "Чтобы предложить улучшения, опишите:\n"
+                        "1. Текущие компоненты (процессор, видеокарта, память)\n"
+                        "2. Бюджет на апгрейд\n"
+                        "3. Цель — больше FPS в играх, скорость работы, монтаж и т.д.\n\n"
+                        "Пример: У меня i5-10400F, GTX 1060 6GB, 16GB DDR4. Бюджет 30 000 рублей. Хочу улучшить для игр.")
+        elif result.get('need_budget'):
+            response = "Укажите бюджет на апгрейд. Например: бюджет 30 000 рублей"
+        else:
+            response = format_upgrade_response(result, purpose)
         return response, None
 
     elif intent == "unknown":
@@ -532,6 +710,14 @@ def predict():
         else:
             intent, confidence = simple_classifier(message)
 
+        # Если пользователь описывает своё железо + бюджет — переключаем на апгрейд
+        if intent not in ('upgrade_request',) and final_budget > 0:
+            has_upgrade_words = any(w in message.lower() for w in ['у меня', 'имею', 'стоит', 'хочу улучшить', 'хочу апгрейд'])
+            has_components = bool(re.search(r'(?:i[3579][\s\-]\d{4}|ryzen\s*\d|rtx\s*\d{4}|gtx\s*\d{4}|rx\s*\d{4})', message.lower()))
+            if has_upgrade_words and has_components:
+                intent = 'upgrade_request'
+                print(f"[UPGRADE] Переопределён интент на upgrade_request", file=sys.stderr)
+
         response_text, recommendation_result = generate_response(intent, confidence, message, context, final_budget, final_purpose)
 
         result = {
@@ -555,6 +741,7 @@ def predict():
             result['total_price'] = recommendation_result.get('total_price', 0)
             result['budget_utilization'] = recommendation_result.get('budget_utilization', 0)
             result['build_budget'] = recommendation_result.get('used_budget', final_budget)
+            result['is_game_build'] = recommendation_result.get('is_game_build', False)
 
         return jsonify(result)
 

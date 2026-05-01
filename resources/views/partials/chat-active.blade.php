@@ -57,13 +57,11 @@
 
         @php
             $lastRecommendation = null;
-            foreach ($messages->reverse() as $message) {
-                if ($message->sender == 'ai' && $message->metadata) {
-                    $metadata = json_decode($message->metadata, true);
-                    if (isset($metadata['components']) && !empty($metadata['components'])) {
-                        $lastRecommendation = $metadata;
-                        break;
-                    }
+            $lastAiMessage = $messages->where('sender', 'ai')->last();
+            if ($lastAiMessage && $lastAiMessage->metadata) {
+                $metadata = json_decode($lastAiMessage->metadata, true);
+                if (isset($metadata['components']) && !empty($metadata['components'])) {
+                    $lastRecommendation = $metadata;
                 }
             }
         @endphp
@@ -83,7 +81,11 @@
                         </button>
                     </div>
                     <p class="save-build-info">
-                        Бюджет: {{ number_format($chat->budget, 0, ',', ' ') }} ₽ •
+                        @if(!empty($lastRecommendation['neural_data']['is_game_build']))
+                            Стоимость: {{ number_format($lastRecommendation['total_price'] ?? 0, 0, ',', ' ') }} ₽ •
+                        @else
+                            Бюджет: {{ number_format($chat->budget, 0, ',', ' ') }} ₽ •
+                        @endif
                         Назначение:
                         @if($chat->purpose === 'gaming')
                             Игровой
