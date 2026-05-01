@@ -456,6 +456,92 @@ def recommend_build(db_path: str, budget: float, purpose: str = 'gaming', game_r
         return {'success': False, 'error': f'Ошибка при подборе сборки: {str(e)}'}
 
 
+def get_component_explanation(comp_type: str, comp: dict, purpose: str) -> str:
+    """Возвращает короткое пояснение почему выбран этот компонент"""
+    price = comp.get('price', 0)
+
+    if comp_type == 'cpu':
+        cores = comp.get('cores', 0)
+        if cores >= 12:
+            return "Мощный многоядерный процессор — справится с играми, стримингом и параллельными задачами одновременно"
+        elif cores >= 8:
+            if purpose == 'gaming':
+                return "Хороший выбор для игр — 8+ ядер исключают просадки FPS даже в требовательных сценах"
+            return "Хватит для работы, многозадачности и нетяжёлого видеомонтажа"
+        elif cores >= 6:
+            if purpose == 'gaming':
+                return "Оптимальный выбор для игр — 6 ядер достаточно для стабильного FPS в большинстве тайтлов"
+            elif purpose == 'office':
+                return "Достаточно для офисных задач, браузера и лёгкой многозадачности"
+            return "Сбалансированный процессор для повседневных задач"
+        else:
+            return "Базовый вариант для нетребовательных задач"
+
+    elif comp_type == 'gpu':
+        vram = comp.get('vram', 0)
+        if vram >= 20:
+            return "Флагманская видеокарта — для 4K с трассировкой лучей, профессиональной 3D-работы и запаса на годы вперёд"
+        elif vram >= 16:
+            return "Топовый выбор — 16 ГБ VRAM для комфортной игры в 4K и требовательных профессиональных задач"
+        elif vram >= 12:
+            return "Для комфортной игры в 1440p и 4K, с запасом на несколько лет вперёд"
+        elif vram >= 8:
+            return "Оптимальный выбор — 8 ГБ VRAM хватает для всех современных игр в 1080p и большинства в 1440p"
+        else:
+            return "Бюджетный вариант для нетребовательных игр и медиа в 1080p"
+
+    elif comp_type == 'ram':
+        qty = comp.get('quantity', 1)
+        cap = comp.get('capacity', 0)
+        total_gb = cap * qty
+        mem_type = comp.get('memory_type', '')
+        type_note = f" ({mem_type})" if mem_type else ""
+        if total_gb >= 32:
+            return f"32+ ГБ{type_note} — достаточно для стриминга, монтажа и тяжёлых приложений без ограничений"
+        elif total_gb >= 16:
+            return f"16 ГБ{type_note} — оптимальный объём для игр, работы и многозадачности"
+        elif total_gb >= 8:
+            if purpose == 'gaming':
+                return f"8 ГБ{type_note} — минимум для современных игр, при возможности стоит расширить до 16 ГБ"
+            return f"8 ГБ{type_note} — достаточно для офисных задач и повседневной работы"
+        return "Базовый объём памяти"
+
+    elif comp_type == 'motherboard':
+        mem_type = comp.get('memory_type', '')
+        socket = comp.get('socket', '')
+        if 'DDR5' in mem_type:
+            return f"Современная платформа {socket} с DDR5 — обеспечивает высокую скорость памяти и запас для апгрейда"
+        return f"Надёжная платформа {socket} с поддержкой расширения и совместима с процессором"
+
+    elif comp_type == 'storage':
+        cap = comp.get('capacity', 0)
+        stype = comp.get('storage_type', '').lower()
+        cap_text = f"{cap/1000:.0f} ТБ" if cap >= 1000 else f"{cap} ГБ"
+        if 'nvme' in stype or 'm.2' in stype:
+            return f"Быстрый NVMe SSD {cap_text} — мгновенная загрузка ОС и игр, скорость чтения в несколько раз выше обычного SSD"
+        elif 'ssd' in stype:
+            return f"SSD {cap_text} значительно ускоряет загрузку системы и приложений по сравнению с HDD"
+        return f"Накопитель {cap_text} для хранения ОС, игр и файлов"
+
+    elif comp_type == 'psu':
+        power = comp.get('power', 0)
+        if power >= 800:
+            return f"Блок питания {power} Вт с запасом — стабильное питание и возможность установить более мощные компоненты в будущем"
+        elif power >= 650:
+            return f"Блок питания {power} Вт перекрывает потребности сборки с небольшим запасом на нагрузочные пики"
+        return f"Обеспечивает стабильное питание всех компонентов сборки"
+
+    elif comp_type == 'case':
+        return "Обеспечивает нормальный воздушный поток и вмещает все компоненты сборки"
+
+    elif comp_type == 'cooler':
+        if price >= 3000:
+            return "Эффективное охлаждение снижает температуру и шум процессора под нагрузкой"
+        return "Поддерживает нормальную рабочую температуру процессора"
+
+    return ""
+
+
 def format_recommendation(budget: float, purpose: str, result: dict, game_name: str = None):
     try:
         purpose_text = {'gaming': 'игрового', 'workstation': 'рабочей станции', 'office': 'офисного', 'streaming': 'стримингового'}.get(purpose, purpose)
@@ -530,6 +616,12 @@ def format_recommendation(budget: float, purpose: str, result: dict, game_name: 
                     response += f"{name}: {comp_name}{spec_text} - {total_price:,.0f} ₽\n"
                 else:
                     response += f"{name}: {comp_name}{spec_text} - {price_f} ₽\n"
+
+                explanation = get_component_explanation(ct, comp, purpose)
+                if explanation:
+                    response += f"   -> {explanation}\n\n"
+                else:
+                    response += "\n"
 
         total = result.get('total_price', 0)
         utilization = result.get('budget_utilization', 0)
