@@ -41,5 +41,7 @@
 <script src="{{ asset('js/script.js') }}"></script>
 
 @stack('scripts')
+
+@stack('body_end')
 </body>
 </html>

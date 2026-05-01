@@ -1,5 +1,9 @@
 @forelse($builds as $build)
-    <div class="build-card">
+    <div class="build-card" data-build-id="{{ $build->id }}">
+        <label class="compare-checkbox-wrap">
+            <input type="checkbox" class="compare-checkbox" value="{{ $build->id }}">
+            <span>Сравнить</span>
+        </label>
         <div class="build-header">
             <div>
                 <div class="build-title">{{ $build->name }}</div>

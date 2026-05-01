@@ -201,9 +201,56 @@
     </div>
 @endsection
 
+@push('body_end')
+    <div class="compare-bar" id="compareBar" style="display:none;">
+        <span class="compare-bar-text">Выбрано: <strong id="compareCount">0</strong> из 2</span>
+        <a href="#" class="btn btn-primary btn-sm" id="compareBtn">
+            <span class="icon icon-compare"></span> Сравнить
+        </a>
+        <button class="btn btn-outline btn-sm" id="compareClear">Сбросить</button>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Сравнение сборок
+            const compareBar = document.getElementById('compareBar');
+            const compareCount = document.getElementById('compareCount');
+            const compareBtn = document.getElementById('compareBtn');
+            const compareClear = document.getElementById('compareClear');
+
+            function updateCompare() {
+                const checked = document.querySelectorAll('.compare-checkbox:checked');
+                const count = checked.length;
+                compareCount.textContent = count;
+                compareBar.style.display = count > 0 ? 'flex' : 'none';
+                compareBtn.style.opacity = count === 2 ? '1' : '0.5';
+                compareBtn.style.pointerEvents = count === 2 ? 'auto' : 'none';
+
+                if (count === 2) {
+                    const ids = Array.from(checked).map(cb => cb.value);
+                    compareBtn.href = `{{ route('build.compare') }}?ids[]=${ids[0]}&ids[]=${ids[1]}`;
+                }
+
+                document.querySelectorAll('.compare-checkbox').forEach(cb => {
+                    if (!cb.checked && count >= 2) cb.disabled = true;
+                    else cb.disabled = false;
+                });
+            }
+
+            document.getElementById('buildsGrid').addEventListener('change', function(e) {
+                if (e.target.classList.contains('compare-checkbox')) updateCompare();
+            });
+
+            compareClear.addEventListener('click', function() {
+                document.querySelectorAll('.compare-checkbox').forEach(cb => {
+                    cb.checked = false;
+                    cb.disabled = false;
+                });
+                updateCompare();
+            });
+
             const loadMoreBtn = document.getElementById('loadMoreBtn');
 
             if (loadMoreBtn) {

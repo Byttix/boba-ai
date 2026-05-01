@@ -163,6 +163,63 @@ class ProfileController extends Controller
         return back()->withErrors(['current_password' => $message])->withInput();
     }
 
+    public function compare(Request $request)
+    {
+        $ids = array_slice((array) $request->get('ids', []), 0, 2);
+
+        if (count($ids) < 2) {
+            return redirect()->route('profile')->with('error', 'Выберите 2 сборки для сравнения');
+        }
+
+        $builds = Build::whereIn('id', $ids)
+            ->where('user_id', Auth::id())
+            ->get();
+
+        if ($builds->count() < 2) {
+            return redirect()->route('profile')->with('error', 'Сборки не найдены');
+        }
+
+        $tableMap = [
+            'cpu'          => ['label' => 'Процессор',          'field' => 'cpu_id',         'table' => 'cpus'],
+            'motherboard'  => ['label' => 'Материнская плата',  'field' => 'motherboard_id',  'table' => 'motherboards'],
+            'ram'          => ['label' => 'Оперативная память',  'field' => 'ram_id',          'table' => 'rams'],
+            'gpu'          => ['label' => 'Видеокарта',          'field' => 'gpu_id',          'table' => 'gpus'],
+            'storage'      => ['label' => 'Накопитель',          'field' => 'storage_id',      'table' => 'storages'],
+            'power_supply' => ['label' => 'Блок питания',        'field' => 'power_supply_id', 'table' => 'psus'],
+            'case'         => ['label' => 'Корпус',              'field' => 'case_id',         'table' => 'cases'],
+            'cpu_cooler'   => ['label' => 'Кулер',               'field' => 'cpu_cooler_id',   'table' => 'coolers'],
+        ];
+
+        $components = [];
+        foreach ($tableMap as $type => $info) {
+            $row = [];
+            foreach ($builds as $build) {
+                $fieldValue = $build->{$info['field']};
+                $component = null;
+                if ($fieldValue) {
+                    $component = DB::connection('sqlite_components')
+                        ->table($info['table'])
+                        ->where('id', $fieldValue)
+                        ->first();
+                    if ($component && $type === 'ram') {
+                        $component->quantity = $build->ram_quantity ?? 1;
+                    }
+                }
+                $row[] = $component;
+            }
+            $components[$type] = [
+                'label' => $info['label'],
+                'items' => $row,
+                'differs' => $row[0]?->id !== $row[1]?->id,
+            ];
+        }
+
+        return view('profile.compare', [
+            'builds'     => $builds,
+            'components' => $components,
+        ]);
+    }
+
     public function exportPdf(Build $build)
     {
         if ($build->user_id !== Auth::id()) {

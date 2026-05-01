@@ -28,6 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/builds/create', [HomeController::class, 'saveBuild'])->name('build.save');
     Route::delete('/builds/{build}', [ProfileController::class, 'destroy'])->name('build.destroy');
     Route::get('/builds/{build}/pdf', [ProfileController::class, 'exportPdf'])->name('build.pdf');
+    Route::get('/builds/compare', [ProfileController::class, 'compare'])->name('build.compare');
     Route::get('/api/builds/{build}/links', [HomeController::class, 'getBuildLinks'])->name('api.build.links');
 
     // Отзывы

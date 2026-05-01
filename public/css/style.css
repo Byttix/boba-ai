@@ -2233,3 +2233,235 @@ select.form-control:focus {
         width: 100%;
     }
 }
+
+/* =================== СРАВНЕНИЕ СБОРОК =================== */
+.compare-checkbox-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--gray-text);
+    cursor: pointer;
+    margin-bottom: 12px;
+    user-select: none;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: fit-content;
+    transition: border-color 0.2s;
+}
+
+.compare-checkbox-wrap:hover {
+    border-color: var(--primary-light);
+    color: var(--primary-light);
+}
+
+.compare-checkbox-wrap input {
+    accent-color: var(--primary-light);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.compare-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    z-index: 9999;
+    white-space: nowrap;
+}
+
+.compare-bar-text {
+    font-size: 14px;
+    color: var(--gray-text);
+}
+
+/* Страница сравнения */
+.compare-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.compare-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.compare-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.compare-table {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--card-bg);
+}
+
+.compare-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.compare-row:last-child {
+    border-bottom: none;
+}
+
+.compare-row.compare-differs {
+    background: rgba(59, 218, 0, 0.05);
+    border-left: 3px solid var(--primary-light);
+}
+
+.compare-label {
+    padding: 14px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+}
+
+.compare-cell {
+    padding: 14px 16px;
+    font-size: 13px;
+    border-right: 1px solid var(--border-color);
+    color: var(--light-text);
+}
+
+.compare-cell:last-child {
+    border-right: none;
+}
+
+.compare-titles .compare-label { background: var(--darker-bg); }
+.compare-titles .compare-cell  { background: var(--darker-bg); }
+
+.compare-build-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.compare-build-date {
+    font-size: 11px;
+    color: var(--gray-text);
+    margin-bottom: 6px;
+}
+
+.compare-build-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-light);
+}
+
+.compare-component-name {
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.compare-component-price {
+    font-size: 12px;
+    color: var(--gray-text);
+}
+
+.compare-total .compare-label,
+.compare-total .compare-cell {
+    font-weight: 700;
+    font-size: 15px;
+    background: var(--darker-bg);
+}
+
+@media (max-width: 768px) {
+    .compare-container {
+        padding: 16px 8px;
+    }
+
+    .compare-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .compare-header h2 {
+        font-size: 1.2rem;
+    }
+
+    .compare-bar {
+        padding: 10px 14px;
+        gap: 10px;
+        bottom: 16px;
+        width: calc(100% - 32px);
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 576px) {
+    .compare-table-wrap {
+        overflow-x: visible;
+    }
+
+    .compare-table {
+        min-width: unset;
+    }
+
+    /* Лейбл — на всю ширину сверху, две ячейки — рядом под ним */
+    .compare-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+    }
+
+    .compare-label {
+        grid-column: 1 / -1;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 8px 12px;
+        font-size: 10px;
+        background: var(--darker-bg);
+    }
+
+    .compare-cell {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    .compare-cell:first-of-type {
+        border-right: 1px solid var(--border-color);
+    }
+
+    .compare-build-name {
+        font-size: 12px;
+    }
+
+    .compare-build-price {
+        font-size: 14px;
+    }
+
+    .compare-titles .compare-label {
+        display: none;
+    }
+
+    .compare-titles .compare-cell {
+        grid-column: auto;
+        border-top: none;
+    }
+
+    .compare-total .compare-label {
+        display: flex;
+    }
+}
