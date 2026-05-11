@@ -192,56 +192,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // =================== КОМПОНЕНТЫ ===================
     function initComponents() {
-        console.log('Инициализация компонентов, кнопок:', document.querySelectorAll('.view-links-btn').length);
+        document.addEventListener('click', async function(e) {
+            const btn = e.target.closest('.view-links-btn');
+            if (!btn) return;
 
-        document.querySelectorAll('.view-links-btn').forEach(btn => {
-            btn.addEventListener('click', async function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+            e.preventDefault();
+            e.stopPropagation();
 
-                const buildId = this.getAttribute('data-build-id');
-                console.log('Открытие компонентов для сборки:', buildId);
+            const buildId = btn.getAttribute('data-build-id');
 
-                // Открываем модальное окно
-                const modal = document.getElementById('componentsModal');
-                if (modal) {
-                    modal.style.display = 'block';
-                    document.body.style.overflow = 'hidden';
+            const modal = document.getElementById('componentsModal');
+            if (!modal) return;
 
-                    // Показываем загрузку
-                    const componentsList = document.getElementById('componentsList');
-                    if (componentsList) {
-                        componentsList.innerHTML = `
-                            <div style="text-align: center; padding: 40px;">
-                                <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
-                                <p>Загрузка данных...</p>
-                            </div>
-                        `;
-                    }
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
 
-                    // Загружаем данные
-                    try {
-                        const response = await fetch(`/api/builds/${buildId}/links`);
-                        console.log('Ответ от API:', response.status);
+            const componentsList = document.getElementById('componentsList');
+            if (componentsList) {
+                componentsList.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p>Загрузка данных...</p>
+                    </div>
+                `;
+            }
 
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        console.log('Данные от API:', data);
-
-                        if (data.success) {
-                            renderComponents(data);
-                        } else {
-                            showError(data.error || 'Ошибка загрузки данных');
-                        }
-                    } catch (error) {
-                        console.error('Ошибка загрузки компонентов:', error);
-                        showError('Ошибка загрузки данных: ' + error.message);
-                    }
+            try {
+                const response = await fetch(`/api/builds/${buildId}/links`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                if (data.success) {
+                    renderComponents(data);
+                } else {
+                    showError(data.error || 'Ошибка загрузки данных');
                 }
-            });
+            } catch (error) {
+                showError('Ошибка загрузки данных: ' + error.message);
+            }
         });
     }
 
