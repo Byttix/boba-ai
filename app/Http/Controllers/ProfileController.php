@@ -291,7 +291,6 @@ class ProfileController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        // Проверяем, что сборка принадлежит пользователю
         $build = Build::where('id', $request->build_id)
             ->where('user_id', Auth::id())
             ->first();
